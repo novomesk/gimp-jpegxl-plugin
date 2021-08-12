@@ -148,6 +148,13 @@ jpegxl_create_procedure (GimpPlugIn  *plug_in,
                             0, 15, 1,
                             G_PARAM_READWRITE);
 
+      GIMP_PROC_AUX_ARG_INT (procedure, "speed",
+                             "Effort/S_peed",
+                             "Encoder effort setting",
+                             3, 9,
+                             7,
+                             G_PARAM_READWRITE);
+
     }
 
   return procedure;
@@ -561,6 +568,7 @@ static gboolean    save_image (GFile                *file,
 
   gdouble compression = 1.0;
   gboolean lossless = FALSE;
+  gint speed = 7;
 
   filename = g_file_get_path (file);
   gimp_progress_init_printf ("Exporting '%s'.", filename);
@@ -568,6 +576,7 @@ static gboolean    save_image (GFile                *file,
   g_object_get (config,
                 "lossless",           &lossless,
                 "compression",        &compression,
+                "speed",              &speed,
                 NULL);
 
   drawable_type   = gimp_drawable_type (drawable);
@@ -698,6 +707,12 @@ static gboolean    save_image (GFile                *file,
       JxlEncoderOptionsSetLossless (encoder_options, JXL_FALSE);
     }
 
+  status = JxlEncoderOptionsSetEffort (encoder_options, speed);
+  if (status != JXL_ENC_SUCCESS)
+    {
+      g_message ("JxlEncoderOptionsSetEffort failed to set effort %d", speed);
+    }
+
   gimp_progress_update (0.5);
 
   status = JxlEncoderAddImageFrame (encoder_options, &pixel_format, picture_buffer, buffer_size);
@@ -780,6 +795,7 @@ save_dialog (GimpImage     *image,
              GObject       *config)
 {
   GtkWidget    *dialog;
+  GtkListStore *store;
   gboolean      run;
 
   dialog = gimp_save_procedure_dialog_new (GIMP_SAVE_PROCEDURE (procedure),
@@ -792,8 +808,22 @@ save_dialog (GimpImage     *image,
   gimp_procedure_dialog_get_widget (GIMP_PROCEDURE_DIALOG (dialog),
                                     "compression", GIMP_TYPE_SCALE_ENTRY);
 
+  store = gimp_int_store_new ("falcon (faster)",   3,
+                              "cheetah",           4,
+                              "hare",              5,
+                              "wombat",            6,
+                              "squirrel",          7,
+                              "kitten",            8,
+                              "tortoise (slower)", 9,
+                              NULL);
+
+  gimp_procedure_dialog_get_int_combo (GIMP_PROCEDURE_DIALOG (dialog),
+                                       "speed", GIMP_INT_STORE (store));
+  g_object_unref (store);
+
   gimp_procedure_dialog_fill (GIMP_PROCEDURE_DIALOG (dialog),
                               "lossless", "compression",
+                              "speed",
                               NULL);
 
   run = gimp_procedure_dialog_run (GIMP_PROCEDURE_DIALOG (dialog));
