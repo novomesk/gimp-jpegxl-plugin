@@ -99,7 +99,7 @@ jpegxl_create_procedure (GimpPlugIn  *plug_in,
                                         name);
       gimp_procedure_set_attribution (procedure,
                                       "Daniel Novomesky",
-                                      "(C) 2020 Daniel Novomesky",
+                                      "(C) 2021 Daniel Novomesky",
                                       "2021");
 
       gimp_file_procedure_set_mime_types (GIMP_FILE_PROCEDURE (procedure),
@@ -126,7 +126,7 @@ jpegxl_create_procedure (GimpPlugIn  *plug_in,
                                         name);
       gimp_procedure_set_attribution (procedure,
                                       "Daniel Novomesky",
-                                      "(C) 2020 Daniel Novomesky",
+                                      "(C) 2021 Daniel Novomesky",
                                       "2021");
 
       gimp_file_procedure_set_format_name (GIMP_FILE_PROCEDURE (procedure),
@@ -155,6 +155,11 @@ jpegxl_create_procedure (GimpPlugIn  *plug_in,
                              7,
                              G_PARAM_READWRITE);
 
+      GIMP_PROC_ARG_BOOLEAN (procedure, "uses-original-profile",
+                             "Save ori_ginal profile",
+                             "Store ICC profile to exported JXL file",
+                             FALSE,
+                             G_PARAM_READWRITE);
     }
 
   return procedure;
@@ -176,6 +181,7 @@ static GimpImage *load_image (GFile        *file,
   JxlBasicInfo basicinfo;
   JxlDecoderStatus status;
   JxlPixelFormat pixel_format;
+  JxlColorEncoding color_encoding;
   size_t icc_size = 0;
   GimpColorProfile *profile = NULL;
   gboolean loadlinear = FALSE;
@@ -188,7 +194,8 @@ static GimpImage *load_image (GFile        *file,
 
   if (!inputFile)
     {
-      g_message ("Cannot open file for read: %s\n", filename);
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "Cannot open file for read: %s\n", filename);
       g_free (filename);
       return NULL;
     }
@@ -199,7 +206,8 @@ static GimpImage *load_image (GFile        *file,
 
   if (inputFileSize < 1)
     {
-      g_message ("File too small: %s\n", filename);
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "File too small: %s\n", filename);
       fclose (inputFile);
       g_free (filename);
       return NULL;
@@ -208,7 +216,8 @@ static GimpImage *load_image (GFile        *file,
   memory = g_malloc (inputFileSize);
   if (fread (memory, 1, inputFileSize, inputFile) != inputFileSize)
     {
-      g_message ("Failed to read %zu bytes: %s\n", inputFileSize, filename);
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "Failed to read %zu bytes: %s\n", inputFileSize, filename);
       fclose (inputFile);
       g_free (memory);
 
@@ -221,7 +230,8 @@ static GimpImage *load_image (GFile        *file,
   signature = JxlSignatureCheck (memory, inputFileSize);
   if (signature != JXL_SIG_CODESTREAM && signature != JXL_SIG_CONTAINER)
     {
-      g_message ("File %s is probably not in JXL format!\n", filename);
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "File %s is probably not in JXL format!\n", filename);
       g_free (memory);
       g_free (filename);
       return NULL;
@@ -230,7 +240,8 @@ static GimpImage *load_image (GFile        *file,
   decoder = JxlDecoderCreate (NULL);
   if (!decoder)
     {
-      g_message ("ERROR: JxlDecoderCreate failed");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "ERROR: JxlDecoderCreate failed");
       g_free (memory);
       g_free (filename);
       return NULL;
@@ -239,7 +250,8 @@ static GimpImage *load_image (GFile        *file,
   runner = JxlThreadParallelRunnerCreate (NULL, gimp_get_num_processors());
   if (JxlDecoderSetParallelRunner (decoder, JxlThreadParallelRunner, runner) != JXL_DEC_SUCCESS)
     {
-      g_message ("ERROR: JxlDecoderSetParallelRunner failed");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "ERROR: JxlDecoderSetParallelRunner failed");
       JxlThreadParallelRunnerDestroy (runner);
       JxlDecoderDestroy (decoder);
       g_free (memory);
@@ -249,7 +261,8 @@ static GimpImage *load_image (GFile        *file,
 
   if (JxlDecoderSetInput (decoder, memory, inputFileSize) != JXL_DEC_SUCCESS)
     {
-      g_message ("ERROR: JxlDecoderSetInput failed");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "ERROR: JxlDecoderSetInput failed");
       JxlThreadParallelRunnerDestroy (runner);
       JxlDecoderDestroy (decoder);
       g_free (memory);
@@ -259,7 +272,8 @@ static GimpImage *load_image (GFile        *file,
 
   if (JxlDecoderSubscribeEvents (decoder, JXL_DEC_BASIC_INFO | JXL_DEC_COLOR_ENCODING | JXL_DEC_FULL_IMAGE) != JXL_DEC_SUCCESS)
     {
-      g_message ("ERROR: JxlDecoderSubscribeEvents failed");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "ERROR: JxlDecoderSubscribeEvents failed");
       JxlThreadParallelRunnerDestroy (runner);
       JxlDecoderDestroy (decoder);
       g_free (memory);
@@ -270,7 +284,8 @@ static GimpImage *load_image (GFile        *file,
   status = JxlDecoderProcessInput (decoder);
   if (status == JXL_DEC_ERROR)
     {
-      g_message ("ERROR: JXL decoding failed");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "ERROR: JXL decoding failed");
       JxlThreadParallelRunnerDestroy (runner);
       JxlDecoderDestroy (decoder);
       g_free (memory);
@@ -280,7 +295,8 @@ static GimpImage *load_image (GFile        *file,
 
   if (status == JXL_DEC_NEED_MORE_INPUT)
     {
-      g_message ("ERROR: JXL data incomplete");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "ERROR: JXL data incomplete");
       JxlThreadParallelRunnerDestroy (runner);
       JxlDecoderDestroy (decoder);
       g_free (memory);
@@ -291,7 +307,8 @@ static GimpImage *load_image (GFile        *file,
   status = JxlDecoderGetBasicInfo (decoder, &basicinfo);
   if (status != JXL_DEC_SUCCESS)
     {
-      g_message ("ERROR: JXL basic info not available");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "ERROR: JXL basic info not available");
       JxlThreadParallelRunnerDestroy (runner);
       JxlDecoderDestroy (decoder);
       g_free (memory);
@@ -301,7 +318,8 @@ static GimpImage *load_image (GFile        *file,
 
   if (basicinfo.xsize == 0 || basicinfo.ysize == 0)
     {
-      g_message ("ERROR: JXL image has zero dimensions");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "ERROR: JXL image has zero dimensions");
       JxlThreadParallelRunnerDestroy (runner);
       JxlDecoderDestroy (decoder);
       g_free (memory);
@@ -312,12 +330,27 @@ static GimpImage *load_image (GFile        *file,
   status = JxlDecoderProcessInput (decoder);
   if (status != JXL_DEC_COLOR_ENCODING)
     {
-      g_message ("Unexpected event %d instead of JXL_DEC_COLOR_ENCODING", status);
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "Unexpected event %d instead of JXL_DEC_COLOR_ENCODING", status);
       JxlThreadParallelRunnerDestroy (runner);
       JxlDecoderDestroy (decoder);
       g_free (memory);
       g_free (filename);
       return NULL;
+    }
+
+  if (basicinfo.uses_original_profile == JXL_FALSE)
+    {
+      if (basicinfo.num_color_channels == 3)
+        {
+          JxlColorEncodingSetToSRGB (&color_encoding, JXL_FALSE);
+          JxlDecoderSetPreferredColorProfile (decoder, &color_encoding);
+        }
+      else if (basicinfo.num_color_channels == 1)
+        {
+          JxlColorEncodingSetToSRGB (&color_encoding, JXL_TRUE);
+          JxlDecoderSetPreferredColorProfile (decoder, &color_encoding);
+        }
     }
 
   pixel_format.endianness = JXL_NATIVE_ENDIAN;
@@ -350,47 +383,91 @@ static GimpImage *load_image (GFile        *file,
 
   result_size = 4 * pixel_format.num_channels * (size_t) basicinfo.xsize * (size_t) basicinfo.ysize;
 
-  if (JxlDecoderGetICCProfileSize (decoder, &pixel_format, JXL_COLOR_PROFILE_TARGET_DATA, &icc_size) == JXL_DEC_SUCCESS)
+  if (JxlDecoderGetColorAsEncodedProfile (decoder, &pixel_format, JXL_COLOR_PROFILE_TARGET_DATA, &color_encoding) == JXL_DEC_SUCCESS)
     {
-      if (icc_size > 0)
+      if (color_encoding.white_point == JXL_WHITE_POINT_D65)
         {
-          gpointer raw_icc_profile = g_malloc (icc_size);
-
-          if (JxlDecoderGetColorAsICCProfile (decoder, &pixel_format, JXL_COLOR_PROFILE_TARGET_DATA, raw_icc_profile, icc_size)
-              == JXL_DEC_SUCCESS)
+          switch (color_encoding.transfer_function)
             {
-              profile = gimp_color_profile_new_from_icc_profile (raw_icc_profile, icc_size, error);
-              if (profile)
+            case JXL_TRANSFER_FUNCTION_LINEAR:
+              loadlinear = TRUE;
+
+              switch (color_encoding.color_space)
                 {
-                  loadlinear = gimp_color_profile_is_linear (profile);
+                case JXL_COLOR_SPACE_RGB:
+                  profile = gimp_color_profile_new_rgb_srgb_linear();
+                  break;
+                case JXL_COLOR_SPACE_GRAY:
+                  profile = gimp_color_profile_new_d65_gray_linear();
+                  break;
+                default:
+                  break;
+                }
+              break;
+            case JXL_TRANSFER_FUNCTION_SRGB:
+              switch (color_encoding.color_space)
+                {
+                case JXL_COLOR_SPACE_RGB:
+                  profile = gimp_color_profile_new_rgb_srgb();
+                  break;
+                case JXL_COLOR_SPACE_GRAY:
+                  profile = gimp_color_profile_new_d65_gray_srgb_trc();
+                  break;
+                default:
+                  break;
+                }
+              break;
+            default:
+              break;
+            }
+        }
+    }
+
+  if (!profile)
+    {
+      if (JxlDecoderGetICCProfileSize (decoder, &pixel_format, JXL_COLOR_PROFILE_TARGET_DATA, &icc_size) == JXL_DEC_SUCCESS)
+        {
+          if (icc_size > 0)
+            {
+              gpointer raw_icc_profile = g_malloc (icc_size);
+
+              if (JxlDecoderGetColorAsICCProfile (decoder, &pixel_format, JXL_COLOR_PROFILE_TARGET_DATA, raw_icc_profile, icc_size)
+                  == JXL_DEC_SUCCESS)
+                {
+                  profile = gimp_color_profile_new_from_icc_profile (raw_icc_profile, icc_size, error);
+                  if (profile)
+                    {
+                      loadlinear = gimp_color_profile_is_linear (profile);
+                    }
+                  else
+                    {
+                      g_printerr ("%s: Failed to read ICC profile: %s\n", G_STRFUNC, (*error)->message);
+                      g_clear_error (error);
+                    }
                 }
               else
                 {
-                  g_printerr ("%s: Failed to read ICC profile: %s\n", G_STRFUNC, (*error)->message);
-                  g_clear_error (error);
+                  g_printerr ("Failed to obtain data from JPEG XL decoder");
                 }
+
+              g_free (raw_icc_profile);
             }
           else
             {
-              g_message ("Failed to obtain data from JPEG XL decoder");
+              g_printerr ("Empty ICC data");
             }
-
-          g_free (raw_icc_profile);
         }
       else
         {
-          g_message ("Empty ICC data");
+          g_message ("no ICC, other color profile");
         }
-    }
-  else
-    {
-      g_message ("no ICC, other color profile");
     }
 
   status = JxlDecoderProcessInput (decoder);
   if (status != JXL_DEC_NEED_IMAGE_OUT_BUFFER)
     {
-      g_message ("Unexpected event %d instead of JXL_DEC_NEED_IMAGE_OUT_BUFFER", status);
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "Unexpected event %d instead of JXL_DEC_NEED_IMAGE_OUT_BUFFER", status);
       if (profile)
         {
           g_object_unref (profile);
@@ -405,7 +482,8 @@ static GimpImage *load_image (GFile        *file,
   picture_buffer = g_malloc (result_size);
   if (JxlDecoderSetImageOutBuffer (decoder, &pixel_format, picture_buffer, result_size) != JXL_DEC_SUCCESS)
     {
-      g_message ("ERROR: JxlDecoderSetImageOutBuffer failed");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "ERROR: JxlDecoderSetImageOutBuffer failed");
       if (profile)
         {
           g_object_unref (profile);
@@ -420,7 +498,8 @@ static GimpImage *load_image (GFile        *file,
   status = JxlDecoderProcessInput (decoder);
   if (status != JXL_DEC_FULL_IMAGE)
     {
-      g_message ("Unexpected event %d instead of JXL_DEC_FULL_IMAGE", status);
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "Unexpected event %d instead of JXL_DEC_FULL_IMAGE", status);
       g_free (picture_buffer);
       if (profile)
         {
@@ -560,7 +639,10 @@ static gboolean    save_image (GFile                *file,
   gint drawable_height;
   gpointer picture_buffer;
 
+  GimpColorProfile *profile = NULL;
   const Babl     *file_format = NULL;
+  const Babl     *space = NULL;
+  gboolean out_linear = FALSE;
 
   size_t offset = 0;
   uint8_t *next_out;
@@ -569,6 +651,7 @@ static gboolean    save_image (GFile                *file,
   gdouble compression = 1.0;
   gboolean lossless = FALSE;
   gint speed = 7;
+  gboolean uses_original_profile = FALSE;
 
   filename = g_file_get_path (file);
   gimp_progress_init_printf ("Exporting '%s'.", filename);
@@ -577,6 +660,7 @@ static gboolean    save_image (GFile                *file,
                 "lossless",           &lossless,
                 "compression",        &compression,
                 "speed",              &speed,
+                "uses-original-profile", &uses_original_profile,
                 NULL);
 
   drawable_type   = gimp_drawable_type (drawable);
@@ -584,6 +668,30 @@ static gboolean    save_image (GFile                *file,
   drawable_height = gimp_drawable_get_height (drawable);
 
   memset (&output_info, 0, sizeof output_info);
+
+  if (uses_original_profile)
+    {
+      output_info.uses_original_profile = JXL_TRUE;
+
+      profile = gimp_image_get_effective_color_profile (image);
+      out_linear = gimp_color_profile_is_linear (profile);
+
+      space = gimp_color_profile_get_space (profile,
+                                            GIMP_COLOR_RENDERING_INTENT_RELATIVE_COLORIMETRIC,
+                                            error);
+
+      if (error && *error)
+        {
+          g_printerr ("%s: error getting the profile space: %s\n", G_STRFUNC, (*error)->message);
+          g_free (filename);
+          return FALSE;
+        }
+    }
+  else
+    {
+      space = babl_space ("sRGB");
+      out_linear = FALSE;
+    }
 
   pixel_format.data_type = JXL_TYPE_UINT16;
   pixel_format.endianness = JXL_NATIVE_ENDIAN;
@@ -599,23 +707,43 @@ static gboolean    save_image (GFile                *file,
   switch (drawable_type)
     {
     case GIMP_GRAYA_IMAGE:
-      file_format = babl_format ("Y'A u16");
+      if (uses_original_profile && out_linear)
+        {
+          file_format = babl_format ("YA u16");
+          JxlColorEncodingSetToLinearSRGB (&color_profile, JXL_TRUE);
+        }
+      else
+        {
+          file_format = babl_format ("Y'A u16");
+          JxlColorEncodingSetToSRGB (&color_profile, JXL_TRUE);
+        }
       pixel_format.num_channels = 2;
-      JxlColorEncodingSetToSRGB (&color_profile, JXL_TRUE);
       output_info.num_color_channels = 1;
       output_info.alpha_bits = 16;
       output_info.alpha_exponent_bits = 0;
       output_info.num_extra_channels = 1;
+
+      uses_original_profile = FALSE;
       break;
     case GIMP_GRAY_IMAGE:
-      file_format = babl_format ("Y' u16");
+      if (uses_original_profile && out_linear)
+        {
+          file_format = babl_format ("Y u16");
+          JxlColorEncodingSetToLinearSRGB (&color_profile, JXL_TRUE);
+        }
+      else
+        {
+          file_format = babl_format ("Y' u16");
+          JxlColorEncodingSetToSRGB (&color_profile, JXL_TRUE);
+        }
       pixel_format.num_channels = 1;
-      JxlColorEncodingSetToSRGB (&color_profile, JXL_TRUE);
       output_info.num_color_channels = 1;
       output_info.alpha_bits = 0;
+
+      uses_original_profile = FALSE;
       break;
     case GIMP_RGBA_IMAGE:
-      file_format = babl_format ("R'G'B'A u16");
+      file_format = babl_format_with_space (out_linear ? "RGBA u16" : "R'G'B'A u16", space);
       pixel_format.num_channels = 4;
       JxlColorEncodingSetToSRGB (&color_profile, JXL_FALSE);
       output_info.num_color_channels = 3;
@@ -624,13 +752,17 @@ static gboolean    save_image (GFile                *file,
       output_info.num_extra_channels = 1;
       break;
     case GIMP_RGB_IMAGE:
-      file_format = babl_format ("R'G'B' u16");
+      file_format = babl_format_with_space (out_linear ? "RGB u16" : "R'G'B' u16", space);
       pixel_format.num_channels = 3;
       JxlColorEncodingSetToSRGB (&color_profile, JXL_FALSE);
       output_info.num_color_channels = 3;
       output_info.alpha_bits = 0;
       break;
     default:
+      if (profile)
+        {
+          g_object_unref (profile);
+        }
       g_free (filename);
       return FALSE;
       break;
@@ -655,8 +787,13 @@ static gboolean    save_image (GFile                *file,
   encoder = JxlEncoderCreate (NULL);
   if (!encoder)
     {
-      g_message ("Failed to create Jxl encoder");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "Failed to create Jxl encoder");
       g_free (picture_buffer);
+      if (profile)
+        {
+          g_object_unref (profile);
+        }
       g_free (filename);
       return FALSE;
     }
@@ -664,10 +801,15 @@ static gboolean    save_image (GFile                *file,
   runner = JxlThreadParallelRunnerCreate (NULL, gimp_get_num_processors());
   if (JxlEncoderSetParallelRunner (encoder, JxlThreadParallelRunner, runner) != JXL_ENC_SUCCESS)
     {
-      g_message ("JxlEncoderSetParallelRunner failed");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "JxlEncoderSetParallelRunner failed");
       JxlThreadParallelRunnerDestroy (runner);
       JxlEncoderDestroy (encoder);
       g_free (picture_buffer);
+      if (profile)
+        {
+          g_object_unref (profile);
+        }
       g_free (filename);
       return FALSE;
     }
@@ -675,23 +817,57 @@ static gboolean    save_image (GFile                *file,
   status = JxlEncoderSetBasicInfo (encoder, &output_info);
   if (status != JXL_ENC_SUCCESS)
     {
-      g_message ("JxlEncoderSetBasicInfo failed!");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "JxlEncoderSetBasicInfo failed!");
       JxlThreadParallelRunnerDestroy (runner);
       JxlEncoderDestroy (encoder);
       g_free (picture_buffer);
+      if (profile)
+        {
+          g_object_unref (profile);
+        }
       g_free (filename);
       return FALSE;
     }
 
-  status = JxlEncoderSetColorEncoding (encoder, &color_profile);
-  if (status != JXL_ENC_SUCCESS)
+  if (uses_original_profile)
     {
-      g_message ("JxlEncoderSetColorEncoding failed!");
-      JxlThreadParallelRunnerDestroy (runner);
-      JxlEncoderDestroy (encoder);
-      g_free (picture_buffer);
-      g_free (filename);
-      return FALSE;
+      const uint8_t *icc_data = NULL;
+      size_t icc_length = 0;
+      icc_data = gimp_color_profile_get_icc_profile (profile, &icc_length);
+      status = JxlEncoderSetICCProfile (encoder, icc_data, icc_length);
+      g_object_unref (profile);
+      profile = NULL;
+
+      if (status != JXL_ENC_SUCCESS)
+        {
+          g_set_error (error, G_FILE_ERROR, 0,
+                       "JxlEncoderSetICCProfile failed!");
+          JxlThreadParallelRunnerDestroy (runner);
+          JxlEncoderDestroy (encoder);
+          g_free (picture_buffer);
+          g_free (filename);
+        }
+    }
+  else
+    {
+      if (profile)
+        {
+          g_object_unref (profile);
+          profile = NULL;
+        }
+
+      status = JxlEncoderSetColorEncoding (encoder, &color_profile);
+      if (status != JXL_ENC_SUCCESS)
+        {
+          g_set_error (error, G_FILE_ERROR, 0,
+                       "JxlEncoderSetColorEncoding failed!");
+          JxlThreadParallelRunnerDestroy (runner);
+          JxlEncoderDestroy (encoder);
+          g_free (picture_buffer);
+          g_free (filename);
+          return FALSE;
+        }
     }
 
   encoder_options = JxlEncoderOptionsCreate (encoder, NULL);
@@ -710,15 +886,16 @@ static gboolean    save_image (GFile                *file,
   status = JxlEncoderOptionsSetEffort (encoder_options, speed);
   if (status != JXL_ENC_SUCCESS)
     {
-      g_message ("JxlEncoderOptionsSetEffort failed to set effort %d", speed);
+      g_printerr ("JxlEncoderOptionsSetEffort failed to set effort %d", speed);
     }
 
   gimp_progress_update (0.5);
 
   status = JxlEncoderAddImageFrame (encoder_options, &pixel_format, picture_buffer, buffer_size);
-  if (status == JXL_ENC_ERROR)
+  if (status != JXL_ENC_SUCCESS)
     {
-      g_message ("JxlEncoderAddImageFrame failed!");
+      g_set_error (error, G_FILE_ERROR, 0,
+                   "JxlEncoderAddImageFrame failed!");
       JxlThreadParallelRunnerDestroy (runner);
       JxlEncoderDestroy (encoder);
       g_free (picture_buffer);
@@ -745,7 +922,8 @@ static gboolean    save_image (GFile                *file,
         }
       else if (status == JXL_ENC_ERROR)
         {
-          g_message ("JxlEncoderProcessOutput failed!");
+          g_set_error (error, G_FILE_ERROR, 0,
+                       "JxlEncoderProcessOutput failed!");
           JxlThreadParallelRunnerDestroy (runner);
           JxlEncoderDestroy (encoder);
           g_free (picture_buffer);
@@ -769,7 +947,8 @@ static gboolean    save_image (GFile                *file,
       outfile = g_fopen (filename, "wb");
       if (!outfile)
         {
-          g_message ("Could not open '%s' for writing!\n", filename);
+          g_set_error (error, G_FILE_ERROR, 0,
+                       "Could not open '%s' for writing!\n", filename);
           g_free (filename);
           g_byte_array_free (compressed, TRUE);
           return FALSE;
@@ -784,6 +963,9 @@ static gboolean    save_image (GFile                *file,
       g_byte_array_free (compressed, TRUE);
       return TRUE;
     }
+
+  g_set_error (error, G_FILE_ERROR, 0,
+               "No data to write");
   g_byte_array_free (compressed, TRUE);
   g_free (filename);
   return FALSE;
@@ -821,9 +1003,12 @@ save_dialog (GimpImage     *image,
                                        "speed", GIMP_INT_STORE (store));
   g_object_unref (store);
 
+  gimp_procedure_dialog_get_widget (GIMP_PROCEDURE_DIALOG (dialog),
+                                    "uses-original-profile", GTK_TYPE_CHECK_BUTTON);
+
   gimp_procedure_dialog_fill (GIMP_PROCEDURE_DIALOG (dialog),
                               "lossless", "compression",
-                              "speed",
+                              "speed", "uses-original-profile",
                               NULL);
 
   run = gimp_procedure_dialog_run (GIMP_PROCEDURE_DIALOG (dialog));
