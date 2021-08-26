@@ -47,8 +47,10 @@ compiler_args += cc.get_supported_arguments('-fPIE')
 compiler_args += cc.get_supported_arguments(warning_cflags_common)
 add_project_arguments(cc .get_supported_arguments(warning_cflags_c),   language: 'c')
 
-libjxl           = dependency('libjxl', version: '>= 0.6.0')
-libjxl_threads   = dependency('libjxl_threads')
+jpegxl_minver    = '0.6.0'
+
+libjxl           = dependency('libjxl',         version: '>='+jpegxl_minver)
+libjxl_threads   = dependency('libjxl_threads', version: '>='+jpegxl_minver)
 
 gimp             = dependency('gimp-3.0', version: '>=2.99.7')
 gimpplugindir    = gimp.get_pkgconfig_variable('gimplibdir')

@@ -1,7 +1,7 @@
 common_plugins_list = [
 ]
 
-if libjxl.found()
+if libjxl.found() and libjxl_threads.found()
   common_plugins_list += { 'name': 'file-jpegxl',
     'deps': [ gtk3, gegl, libjxl, libjxl_threads, ],
   }
