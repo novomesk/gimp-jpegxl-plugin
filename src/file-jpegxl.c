@@ -1,12 +1,15 @@
-
-#include <libgimp/gimp.h>
-#include <libgimp/gimpui.h>
+#include "config.h"
 
 #include <glib/gstdio.h>
 
 #include <jxl/decode.h>
 #include <jxl/encode.h>
 #include <jxl/thread_parallel_runner.h>
+
+#include <libgimp/gimp.h>
+#include <libgimp/gimpui.h>
+
+#include "libgimp/stdplugins-intl.h"
 
 #define LOAD_PROC       "file-jpegxl-load"
 #define SAVE_PROC       "file-jpegxl-save"
@@ -33,7 +36,7 @@ GType                   jpegxl_get_type (void) G_GNUC_CONST;
 
 static GList           *jpegxl_query_procedures (GimpPlugIn           *plug_in);
 static GimpProcedure   *jpegxl_create_procedure (GimpPlugIn           *plug_in,
-    const gchar          *name);
+                                                 const gchar          *name);
 
 static GimpValueArray *jpegxl_load (GimpProcedure        *procedure,
                                     GimpRunMode           run_mode,
@@ -91,11 +94,11 @@ jpegxl_create_procedure (GimpPlugIn  *plug_in,
                                            GIMP_PDB_PROC_TYPE_PLUGIN,
                                            jpegxl_load, NULL, NULL);
 
-      gimp_procedure_set_menu_label (procedure, "JPEG-XL image");
+      gimp_procedure_set_menu_label (procedure, N_("JPEG-XL image"));
 
       gimp_procedure_set_documentation (procedure,
-                                        "Loads files in the JPEG-XL file format",
-                                        "Loads files in the JPEG-XL file format",
+                                        _("Loads files in the JPEG-XL file format"),
+                                        _("Loads files in the JPEG-XL file format"),
                                         name);
       gimp_procedure_set_attribution (procedure,
                                       "Daniel Novomesky",
@@ -118,11 +121,11 @@ jpegxl_create_procedure (GimpPlugIn  *plug_in,
 
       gimp_procedure_set_image_types (procedure, "RGB*, GRAY*");
 
-      gimp_procedure_set_menu_label (procedure, "JPEG-XL image");
+      gimp_procedure_set_menu_label (procedure, N_("JPEG-XL image"));
 
       gimp_procedure_set_documentation (procedure,
-                                        "Saves files in the JPEG-XL file format",
-                                        "Saves files in the JPEG-XL file format",
+                                        _("Saves files in the JPEG-XL file format"),
+                                        _("Saves files in the JPEG-XL file format"),
                                         name);
       gimp_procedure_set_attribution (procedure,
                                       "Daniel Novomesky",
@@ -137,27 +140,27 @@ jpegxl_create_procedure (GimpPlugIn  *plug_in,
                                           "jxl");
 
       GIMP_PROC_ARG_BOOLEAN (procedure, "lossless",
-                             "L_ossless",
-                             "Use lossless compression",
+                             _("L_ossless"),
+                             _("Use lossless compression"),
                              FALSE,
                              G_PARAM_READWRITE);
 
       GIMP_PROC_ARG_DOUBLE (procedure, "compression",
-                            "Co_mpression/maxError",
-                            "Max. butteraugli distance, lower = higher quality. Range: 0 .. 15. 1.0 = visually lossless.",
+                            _("Co_mpression/maxError"),
+                            _("Max. butteraugli distance, lower = higher quality. Range: 0 .. 15. 1.0 = visually lossless."),
                             0, 15, 1,
                             G_PARAM_READWRITE);
 
       GIMP_PROC_AUX_ARG_INT (procedure, "speed",
-                             "Effort/S_peed",
-                             "Encoder effort setting",
+                             _("Effort/S_peed"),
+                             _("Encoder effort setting"),
                              3, 9,
                              7,
                              G_PARAM_READWRITE);
 
       GIMP_PROC_ARG_BOOLEAN (procedure, "uses-original-profile",
-                             "Save ori_ginal profile",
-                             "Store ICC profile to exported JXL file",
+                             _("Save ori_ginal profile"),
+                             _("Store ICC profile to exported JXL file"),
                              FALSE,
                              G_PARAM_READWRITE);
     }
@@ -171,22 +174,23 @@ static GimpImage *load_image (GFile        *file,
 {
   gchar            *filename = g_file_get_path (file);
 
-  FILE *inputFile = g_fopen (filename, "rb");
+  FILE             *inputFile = g_fopen (filename, "rb");
 
-  gsize inputFileSize;
-  gpointer memory;
-  JxlSignature signature;
-  JxlDecoder *decoder;
-  void *runner;
-  JxlBasicInfo basicinfo;
-  JxlDecoderStatus status;
-  JxlPixelFormat pixel_format;
-  JxlColorEncoding color_encoding;
-  size_t icc_size = 0;
+  gsize             inputFileSize;
+  gpointer          memory;
+
+  JxlSignature      signature;
+  JxlDecoder       *decoder;
+  void             *runner;
+  JxlBasicInfo      basicinfo;
+  JxlDecoderStatus  status;
+  JxlPixelFormat    pixel_format;
+  JxlColorEncoding  color_encoding;
+  size_t            icc_size = 0;
   GimpColorProfile *profile = NULL;
-  gboolean loadlinear = FALSE;
-  size_t result_size;
-  gpointer picture_buffer;
+  gboolean          loadlinear = FALSE;
+  size_t            result_size;
+  gpointer          picture_buffer;
 
   GimpImage        *image;
   GimpLayer        *layer;
@@ -582,6 +586,7 @@ jpegxl_load (GimpProcedure        *procedure,
   GimpImage      *image;
   GError         *error             = NULL;
 
+  INIT_I18N ();
   gegl_init (NULL, NULL);
 
   switch (run_mode)
@@ -619,39 +624,39 @@ static gboolean    save_image (GFile                *file,
                                GimpDrawable         *drawable,
                                GError              **error)
 {
-  JxlEncoder *encoder;
-  void *runner;
+  JxlEncoder        *encoder;
+  void              *runner;
   JxlEncoderOptions *encoder_options;
-  JxlPixelFormat pixel_format;
-  JxlBasicInfo output_info;
-  JxlColorEncoding color_profile;
-  JxlEncoderStatus status;
-  size_t buffer_size;
+  JxlPixelFormat     pixel_format;
+  JxlBasicInfo       output_info;
+  JxlColorEncoding   color_profile;
+  JxlEncoderStatus   status;
+  size_t             buffer_size;
 
-  GByteArray *compressed;
+  GByteArray        *compressed;
 
-  gchar          *filename;
-  FILE           *outfile;
-  GeglBuffer     *buffer;
-  GimpImageType   drawable_type;
+  gchar             *filename;
+  FILE              *outfile;
+  GeglBuffer        *buffer;
+  GimpImageType      drawable_type;
 
-  gint drawable_width;
-  gint drawable_height;
-  gpointer picture_buffer;
+  gint               drawable_width;
+  gint               drawable_height;
+  gpointer           picture_buffer;
 
-  GimpColorProfile *profile = NULL;
-  const Babl     *file_format = NULL;
-  const Babl     *space = NULL;
-  gboolean out_linear = FALSE;
+  GimpColorProfile  *profile = NULL;
+  const Babl        *file_format = NULL;
+  const Babl        *space = NULL;
+  gboolean           out_linear = FALSE;
 
-  size_t offset = 0;
-  uint8_t *next_out;
-  size_t avail_out;
+  size_t             offset = 0;
+  uint8_t           *next_out;
+  size_t             avail_out;
 
-  gdouble compression = 1.0;
-  gboolean lossless = FALSE;
-  gint speed = 7;
-  gboolean uses_original_profile = FALSE;
+  gdouble            compression = 1.0;
+  gboolean           lossless = FALSE;
+  gint               speed = 7;
+  gboolean           uses_original_profile = FALSE;
 
   filename = g_file_get_path (file);
   gimp_progress_init_printf ("Exporting '%s'.", filename);
@@ -833,7 +838,8 @@ static gboolean    save_image (GFile                *file,
   if (uses_original_profile)
     {
       const uint8_t *icc_data = NULL;
-      size_t icc_length = 0;
+      size_t         icc_length = 0;
+
       icc_data = gimp_color_profile_get_icc_profile (profile, &icc_length);
       status = JxlEncoderSetICCProfile (encoder, icc_data, icc_length);
       g_object_unref (profile);
@@ -990,13 +996,13 @@ save_dialog (GimpImage     *image,
   gimp_procedure_dialog_get_widget (GIMP_PROCEDURE_DIALOG (dialog),
                                     "compression", GIMP_TYPE_SCALE_ENTRY);
 
-  store = gimp_int_store_new ("falcon (faster)",   3,
-                              "cheetah",           4,
-                              "hare",              5,
-                              "wombat",            6,
-                              "squirrel",          7,
-                              "kitten",            8,
-                              "tortoise (slower)", 9,
+  store = gimp_int_store_new (_("falcon (faster)"),   3,
+                              _("cheetah"),           4,
+                              _("hare"),              5,
+                              _("wombat"),            6,
+                              _("squirrel"),          7,
+                              _("kitten"),            8,
+                              _("tortoise (slower)"), 9,
                               NULL);
 
   gimp_procedure_dialog_get_int_combo (GIMP_PROCEDURE_DIALOG (dialog),
@@ -1034,6 +1040,7 @@ jpegxl_save (GimpProcedure        *procedure,
   GimpExportReturn       export = GIMP_EXPORT_CANCEL;
   GError                *error  = NULL;
 
+  INIT_I18N ();
   gegl_init (NULL, NULL);
 
   config = gimp_procedure_create_config (procedure);
