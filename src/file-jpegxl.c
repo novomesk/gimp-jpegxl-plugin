@@ -251,7 +251,7 @@ static GimpImage *load_image (GFile        *file,
       return NULL;
     }
 
-  runner = JxlThreadParallelRunnerCreate (NULL, gimp_get_num_processors());
+  runner = JxlThreadParallelRunnerCreate (NULL, gimp_get_num_processors ());
   if (JxlDecoderSetParallelRunner (decoder, JxlThreadParallelRunner, runner) != JXL_DEC_SUCCESS)
     {
       g_set_error (error, G_FILE_ERROR, 0,
@@ -399,10 +399,10 @@ static GimpImage *load_image (GFile        *file,
               switch (color_encoding.color_space)
                 {
                 case JXL_COLOR_SPACE_RGB:
-                  profile = gimp_color_profile_new_rgb_srgb_linear();
+                  profile = gimp_color_profile_new_rgb_srgb_linear ();
                   break;
                 case JXL_COLOR_SPACE_GRAY:
-                  profile = gimp_color_profile_new_d65_gray_linear();
+                  profile = gimp_color_profile_new_d65_gray_linear ();
                   break;
                 default:
                   break;
@@ -412,10 +412,10 @@ static GimpImage *load_image (GFile        *file,
               switch (color_encoding.color_space)
                 {
                 case JXL_COLOR_SPACE_RGB:
-                  profile = gimp_color_profile_new_rgb_srgb();
+                  profile = gimp_color_profile_new_rgb_srgb ();
                   break;
                 case JXL_COLOR_SPACE_GRAY:
-                  profile = gimp_color_profile_new_d65_gray_srgb_trc();
+                  profile = gimp_color_profile_new_d65_gray_srgb_trc ();
                   break;
                 default:
                   break;
@@ -605,12 +605,12 @@ jpegxl_load (GimpProcedure        *procedure,
   if (! image)
     {
       return gimp_procedure_new_return_values (procedure,
-             GIMP_PDB_EXECUTION_ERROR,
-             error);
+                                               GIMP_PDB_EXECUTION_ERROR,
+                                               error);
     }
   return_vals = gimp_procedure_new_return_values (procedure,
-                GIMP_PDB_SUCCESS,
-                NULL);
+                                                  GIMP_PDB_SUCCESS,
+                                                  NULL);
 
   GIMP_VALUES_SET_IMAGE (return_vals, 1, image);
 
@@ -803,7 +803,7 @@ static gboolean    save_image (GFile                *file,
       return FALSE;
     }
 
-  runner = JxlThreadParallelRunnerCreate (NULL, gimp_get_num_processors());
+  runner = JxlThreadParallelRunnerCreate (NULL, gimp_get_num_processors ());
   if (JxlEncoderSetParallelRunner (encoder, JxlThreadParallelRunner, runner) != JXL_ENC_SUCCESS)
     {
       g_set_error (error, G_FILE_ERROR, 0,
@@ -987,8 +987,8 @@ save_dialog (GimpImage     *image,
   gboolean      run;
 
   dialog = gimp_save_procedure_dialog_new (GIMP_SAVE_PROCEDURE (procedure),
-           GIMP_PROCEDURE_CONFIG (config),
-           image);
+                                           GIMP_PROCEDURE_CONFIG (config),
+                                           image);
 
   gimp_procedure_dialog_get_widget (GIMP_PROCEDURE_DIALOG (dialog),
                                     "lossless", GTK_TYPE_CHECK_BUTTON);
