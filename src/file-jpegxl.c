@@ -708,6 +708,8 @@ static gboolean    save_image (GFile                *file,
   output_info.exponent_bits_per_sample = 0;
   output_info.intensity_target = 255.0f;
   output_info.orientation = JXL_ORIENT_IDENTITY;
+  output_info.animation.tps_numerator = 10;
+  output_info.animation.tps_denominator = 1;
 
   switch (drawable_type)
     {
