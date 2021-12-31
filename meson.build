@@ -47,7 +47,7 @@ compiler_args += cc.get_supported_arguments('-fPIE')
 compiler_args += cc.get_supported_arguments(warning_cflags_common)
 add_project_arguments(cc .get_supported_arguments(warning_cflags_c),   language: 'c')
 
-jpegxl_minver    = '0.6.0'
+jpegxl_minver    = '0.6.1'
 
 libjxl           = dependency('libjxl',         version: '>='+jpegxl_minver)
 libjxl_threads   = dependency('libjxl_threads', version: '>='+jpegxl_minver)
